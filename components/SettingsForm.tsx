@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { BarCodeScanner } from 'expo-barcode-scanner';
 import StorageService from '../services/StorageService';
 import LoggingService, { LogLevel } from '../services/LoggingService';
+
+// Barcode format constants since we're not using the BarCodeScanner module
+const BARCODE_TYPES = {
+  qr: 'org.iso.QRCode',
+  code128: 'org.iso.Code128',
+  code39: 'org.iso.Code39',
+  ean13: 'org.gs1.EAN-13',
+  ean8: 'org.gs1.EAN-8',
+  upc_e: 'org.gs1.UPC-E'
+};
 
 // Define the settings interface
 export interface AppSettings {
@@ -21,7 +30,7 @@ const defaultSettings: AppSettings = {
   autoSend: true,
   vibrationEnabled: true,
   soundEnabled: true,
-  defaultBarcodeFormat: BarCodeScanner.Constants.BarCodeType.code128,
+  defaultBarcodeFormat: BARCODE_TYPES.code128,
   logLevel: LogLevel.INFO,
   autoConnect: false,
   clearHistoryOnExit: false,
@@ -133,12 +142,12 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ onSettingsChanged }) => {
             onValueChange={(value) => updateSetting('defaultBarcodeFormat', value)}
             style={styles.picker}
           >
-            <Picker.Item label="QR Code" value={BarCodeScanner.Constants.BarCodeType.qr} />
-            <Picker.Item label="Code 128" value={BarCodeScanner.Constants.BarCodeType.code128} />
-            <Picker.Item label="Code 39" value={BarCodeScanner.Constants.BarCodeType.code39} />
-            <Picker.Item label="EAN-13" value={BarCodeScanner.Constants.BarCodeType.ean13} />
-            <Picker.Item label="EAN-8" value={BarCodeScanner.Constants.BarCodeType.ean8} />
-            <Picker.Item label="UPC-E" value={BarCodeScanner.Constants.BarCodeType.upc_e} />
+            <Picker.Item label="QR Code" value={BARCODE_TYPES.qr} />
+            <Picker.Item label="Code 128" value={BARCODE_TYPES.code128} />
+            <Picker.Item label="Code 39" value={BARCODE_TYPES.code39} />
+            <Picker.Item label="EAN-13" value={BARCODE_TYPES.ean13} />
+            <Picker.Item label="EAN-8" value={BARCODE_TYPES.ean8} />
+            <Picker.Item label="UPC-E" value={BARCODE_TYPES.upc_e} />
           </Picker>
         </View>
       </View>

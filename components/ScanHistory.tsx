@@ -44,14 +44,8 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ onItemSelect }) => {
   const loadScanHistory = () => {
     try {
       setLoading(true);
-      // This is a simplified version - in a real app, we would load from AsyncStorage
-      // Convert simple strings to ScanItem objects
-      const history = barcodeService.getScanHistory().map((data, index) => ({
-        id: `${index}-${Date.now()}-${data}`,
-        data,
-        timestamp: new Date(),
-        sent: false,
-      }));
+      // Use the enhanced BarcodeService that now returns ScanItem objects directly
+      const history = barcodeService.getScanHistory();
       
       setScanItems(history);
       logger.info(`Loaded ${history.length} items from scan history`);

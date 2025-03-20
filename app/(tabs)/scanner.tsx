@@ -1,10 +1,14 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Platform, StatusBar } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ScannerScreen from '../../screens/ScannerScreen';
 
+/**
+ * Scanner tab that displays the barcode scanner
+ */
 export default function Scanner() {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScannerScreen />
     </SafeAreaView>
   );
@@ -14,6 +18,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
 }); 

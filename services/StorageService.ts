@@ -54,6 +54,36 @@ export default class StorageService {
   }
 
   /**
+   * Store an object in storage by serializing it to JSON
+   * @param key Storage key
+   * @param value Object to store
+   */
+  public async storeObject<T>(key: string, value: T): Promise<void> {
+    try {
+      const jsonValue = JSON.stringify(value);
+      await this.setItem(key, jsonValue);
+    } catch (error) {
+      this.logger.error(`Error storing object with key ${key}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get an object from storage by parsing it from JSON
+   * @param key Storage key
+   * @returns Parsed object or null if not found
+   */
+  public async getObject<T>(key: string): Promise<T | null> {
+    try {
+      const jsonValue = await this.getItem(key);
+      return jsonValue != null ? JSON.parse(jsonValue) as T : null;
+    } catch (error) {
+      this.logger.error(`Error retrieving object with key ${key}`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Remove an item from storage
    * @param key Storage key
    */

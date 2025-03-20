@@ -1,50 +1,48 @@
-import { Tabs } from 'expo-router';
 import React from 'react';
+import { Tabs } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
+import Colors from '../../constants/Colors';
 
+/**
+ * Tab layout configuration
+ */
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof FontAwesome.glyphMap;
-
-          if (route.name === 'scanner') {
-            iconName = 'barcode';
-          } else if (route.name === 'history') {
-            iconName = 'history';
-          } else if (route.name === 'settings') {
-            iconName = 'cog';
-          } else {
-            iconName = 'question-circle';
-          }
-
-          return <FontAwesome name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#2196F3',
-        tabBarInactiveTintColor: 'gray',
+      screenOptions={{
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.gray,
         tabBarStyle: {
-          paddingBottom: 5,
-          height: 55,
+          backgroundColor: Colors.white,
         },
         headerShown: false,
-      })}>
+      }}
+    >
       <Tabs.Screen
         name="scanner"
         options={{
-          title: 'Scan',
+          title: 'Scanner',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome size={24} name="barcode" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: 'History',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome size={24} name="history" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome size={24} name="gear" color={color} />
+          ),
         }}
       />
     </Tabs>

@@ -49,7 +49,7 @@ export default class USBCommunicationProtocol {
   private isHandshakeComplete: boolean = false;
   private sessionId: string | null = null;
   private deviceInfo: any = null;
-  private messageTimeout: number = 10000; // 10 seconds
+  private messageTimeout: number = 30000; // 30 seconds for development
 
   /**
    * Initialize the protocol

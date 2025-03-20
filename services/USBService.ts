@@ -44,7 +44,7 @@ export enum ConnectionError {
 type USBListener = (data: any) => void;
 
 /**
- * Service for managing USB connections and communication
+ * Service for managing USB device connections and data transmission
  */
 export default class USBService {
   private static instance: USBService;
@@ -52,7 +52,7 @@ export default class USBService {
   private storageService: StorageService;
   private protocol: USBCommunicationProtocol;
   private eventEmitter: NativeEventEmitter | null = null;
-  private listeners: Map<USBEvent, USBListener[]> = new Map();
+  private listeners: Map<USBEvent | string, USBListener[]> = new Map();
   private connectionState: ConnectionState = ConnectionState.DISCONNECTED;
   private connectionError: ConnectionError | null = null;
   private connectionAttempts: number = 0;
@@ -244,10 +244,10 @@ export default class USBService {
     this.connectionError = error;
     
     // Update isConnected for backward compatibility
-    this.isConnected = (state === ConnectionState.READY);
+    this.isConnected = (state === ConnectionState.CONNECTED);
     
     // Clear timers if now connected or in error state
-    if (state === ConnectionState.READY || 
+    if (state === ConnectionState.CONNECTED || 
         state === ConnectionState.ERROR) {
       this.clearConnectionTimer();
     }
@@ -434,16 +434,18 @@ export default class USBService {
         return true;
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Error connecting to USB device', error);
       
-      // Determine error type
       let connectionError = ConnectionError.UNKNOWN;
       
-      if (error.message?.includes('permission')) {
-        connectionError = ConnectionError.PERMISSION_DENIED;
-      } else if (error.message?.includes('not found') || error.message?.includes('no device')) {
-        connectionError = ConnectionError.DEVICE_NOT_FOUND;
+      if (typeof error === 'object' && error !== null && 'message' in error) {
+        const errorMessage = (error as { message?: string }).message;
+        if (errorMessage?.includes('permission')) {
+          connectionError = ConnectionError.PERMISSION_DENIED;
+        } else if (errorMessage?.includes('not found') || errorMessage?.includes('no device')) {
+          connectionError = ConnectionError.DEVICE_NOT_FOUND;
+        }
       }
       
       this.setConnectionState(ConnectionState.ERROR, connectionError);

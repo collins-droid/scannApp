@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, SafeAreaView, Platform, StatusBar } from 'react-native';
-import BarcodeScanner from '../components/BarcodeScanner';
+import MockBarcodeScanner from '../components/MockBarcodeScanner';
 import USBConnectionStatus from '../components/USBConnectionStatus';
 import TransmissionStatus from '../components/TransmissionStatus';
 import LoggingService from '../services/LoggingService';
+import BarcodeService from '../services/BarcodeService';
 import StorageService from '../services/StorageService';
 import { AppSettings } from '../components/SettingsForm';
 
@@ -14,15 +15,17 @@ const ScannerScreen: React.FC = () => {
   const [currentBarcode, setCurrentBarcode] = useState<string | undefined>(undefined);
   const [autoSend, setAutoSend] = useState<boolean>(true);
   const logger = LoggingService.getInstance();
+  const barcodeService = BarcodeService.getInstance();
   const storageService = StorageService.getInstance();
 
   // Load settings on mount
   React.useEffect(() => {
     const loadSettings = async () => {
       try {
-        const settings = await storageService.getObject<AppSettings>('appSettings');
+        const settings = await storageService.getItem('appSettings');
         if (settings) {
-          setAutoSend(settings.autoSend);
+          const parsedSettings = JSON.parse(settings);
+          setAutoSend(parsedSettings.autoSend ?? true);
         }
       } catch (error) {
         logger.error('Error loading settings', error);
@@ -36,6 +39,9 @@ const ScannerScreen: React.FC = () => {
   const handleBarcodeScanned = useCallback((data: string) => {
     logger.info('Barcode scanned', { data });
     
+    // Process the barcode with the BarcodeService
+    barcodeService.handleBarcodeScan(data);
+    
     // Only set barcode if auto-send is enabled (to trigger TransmissionStatus)
     if (autoSend) {
       setCurrentBarcode(data);
@@ -45,12 +51,7 @@ const ScannerScreen: React.FC = () => {
         setCurrentBarcode(undefined);
       }, 3000);
     }
-  }, [autoSend]);
-
-  // Handle scanning errors
-  const handleScanError = useCallback((error: Error) => {
-    logger.error('Barcode scanning error', error);
-  }, []);
+  }, [autoSend, barcodeService]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -64,10 +65,7 @@ const ScannerScreen: React.FC = () => {
       
       {/* Barcode Scanner */}
       <View style={styles.scannerContainer}>
-        <BarcodeScanner
-          onBarcodeScanned={handleBarcodeScanned}
-          onError={handleScanError}
-        />
+        <MockBarcodeScanner onBarcodeScanned={handleBarcodeScanned} />
       </View>
       
       {/* Transmission Status Overlay */}

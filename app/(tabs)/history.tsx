@@ -1,10 +1,14 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Platform, StatusBar } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import HistoryScreen from '../../screens/HistoryScreen';
 
+/**
+ * History tab that displays scan history
+ */
 export default function History() {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <HistoryScreen />
     </SafeAreaView>
   );
@@ -13,7 +17,6 @@ export default function History() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: '#fff',
   },
 }); 

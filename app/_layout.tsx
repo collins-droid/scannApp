@@ -1,66 +1,60 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-import LoggingService from '../services/LoggingService';
+import { Text } from 'react-native';
 import USBService from '../services/USBService';
+import LoggingService from '../services/LoggingService';
+import * as SplashScreen from 'expo-splash-screen';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Keep the splash screen visible while we initialize services
 SplashScreen.preventAutoHideAsync();
 
+/**
+ * Root layout that initializes services and provides the Stack navigator
+ */
 export default function RootLayout() {
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
+  const [isReady, setIsReady] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  
   // Initialize services
   useEffect(() => {
-    const logger = LoggingService.getInstance();
-    const usbService = USBService.getInstance();
-    
-    logger.info('App initialized');
-
-    // Attempt to connect to USB device on startup
-    const attemptConnection = async () => {
+    async function initServices() {
       try {
+        const logger = LoggingService.getInstance();
+        logger.info('Initializing services');
+        
+        const usbService = USBService.getInstance();
         const connected = await usbService.connect();
-        logger.info(`Auto-connect to USB device: ${connected ? 'success' : 'failed'}`);
-      } catch (error) {
-        logger.error('Error connecting to USB device', error);
+        
+        logger.info('Services initialized', { usbConnected: connected });
+        
+        setIsReady(true);
+      } catch (err) {
+        console.error('Failed to initialize services', err);
+        setError('Failed to initialize application services. Please restart the app.');
+        setIsReady(true);
+      } finally {
+        // Hide splash screen once we're done
+        await SplashScreen.hideAsync();
       }
-    };
+    }
 
-    attemptConnection();
-
-    // Clean up when app is unmounted
-    return () => {
-      logger.info('App shutting down');
-      if (usbService.isDeviceConnected()) {
-        usbService.disconnect();
-        logger.info('USB disconnected on app shutdown');
-      }
-    };
+    initServices();
   }, []);
 
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
+  // If there was an error during initialization, show it
+  if (error) {
+    return <Text style={{ padding: 20, color: 'red' }}>{error}</Text>;
   }
 
   return (
-    <ThemeProvider value={DefaultTheme}>
+    <>
       <StatusBar style="auto" />
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </ThemeProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      />
+    </>
   );
 }
