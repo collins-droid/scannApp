@@ -1,43 +1,50 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
-
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { FontAwesome } from '@expo/vector-icons';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: keyof typeof FontAwesome.glyphMap;
+
+          if (route.name === 'scanner') {
+            iconName = 'barcode';
+          } else if (route.name === 'history') {
+            iconName = 'history';
+          } else if (route.name === 'settings') {
+            iconName = 'cog';
+          } else {
+            iconName = 'question-circle';
+          }
+
+          return <FontAwesome name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#2196F3',
+        tabBarInactiveTintColor: 'gray',
+        tabBarStyle: {
+          paddingBottom: 5,
+          height: 55,
+        },
         headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}>
+      })}>
       <Tabs.Screen
-        name="index"
+        name="scanner"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Scan',
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="history"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'History',
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
         }}
       />
     </Tabs>

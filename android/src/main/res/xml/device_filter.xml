@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 
+        USB device filters. 
+        You can add specific vendor and product IDs to filter for specific devices.
+        These are example values and should be replaced with actual device IDs.
+        
+        Example:
+        <usb-device vendor-id="1234" product-id="5678" />
+    -->
+    
+    <!-- This is a generic filter that will match most USB devices -->
+    <usb-device />
+    
+    <!-- Add specific device filters as needed -->
+    <!-- <usb-device vendor-id="0x0000" product-id="0x0000" /> -->
+</resources> 
