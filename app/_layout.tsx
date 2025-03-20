@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View, StyleSheet } from 'react-native';
@@ -74,7 +74,10 @@ export default function RootLayout() {
         screenOptions={{
           headerShown: false,
         }}
-      />
+      >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
     </>
   );
 }

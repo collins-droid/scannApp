@@ -59,15 +59,14 @@ export default class NativeUSBModule {
    */
   public async getDeviceList(): Promise<USBDevice[]> {
     if (!USBModule) {
-      console.warn('USB Module not available');
-      return [];
+      throw new Error('USB Module not available');
     }
 
     try {
       return await USBModule.getDeviceList();
     } catch (error) {
       console.error('Error getting USB device list:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -78,15 +77,14 @@ export default class NativeUSBModule {
    */
   public async requestPermission(deviceId: number): Promise<boolean> {
     if (!USBModule) {
-      console.warn('USB Module not available');
-      return false;
+      throw new Error('USB Module not available');
     }
 
     try {
       return await USBModule.requestPermission(deviceId);
     } catch (error) {
       console.error('Error requesting USB permission:', error);
-      return false;
+      throw error;
     }
   }
 
@@ -97,15 +95,14 @@ export default class NativeUSBModule {
    */
   public async connectToDevice(deviceId: number): Promise<boolean> {
     if (!USBModule) {
-      console.warn('USB Module not available');
-      return false;
+      throw new Error('USB Module not available');
     }
 
     try {
       return await USBModule.connectToDevice(deviceId);
     } catch (error) {
       console.error('Error connecting to USB device:', error);
-      return false;
+      throw error;
     }
   }
 
@@ -115,15 +112,14 @@ export default class NativeUSBModule {
    */
   public async disconnect(): Promise<boolean> {
     if (!USBModule) {
-      console.warn('USB Module not available');
-      return false;
+      throw new Error('USB Module not available');
     }
 
     try {
       return await USBModule.disconnect();
     } catch (error) {
       console.error('Error disconnecting from USB device:', error);
-      return false;
+      throw error;
     }
   }
 
@@ -134,15 +130,14 @@ export default class NativeUSBModule {
    */
   public async sendData(data: string): Promise<boolean> {
     if (!USBModule) {
-      console.warn('USB Module not available');
-      return false;
+      throw new Error('USB Module not available');
     }
 
     try {
       return await USBModule.sendData(data);
     } catch (error) {
       console.error('Error sending data to USB device:', error);
-      return false;
+      throw error;
     }
   }
 
@@ -152,15 +147,14 @@ export default class NativeUSBModule {
    */
   public async isConnected(): Promise<boolean> {
     if (!USBModule) {
-      console.warn('USB Module not available');
-      return false;
+      throw new Error('USB Module not available');
     }
 
     try {
       return await USBModule.isConnected();
     } catch (error) {
       console.error('Error checking USB connection status:', error);
-      return false;
+      throw error;
     }
   }
 

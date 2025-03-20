@@ -4,11 +4,20 @@ import LoggingService from './LoggingService';
 import DataProcessingService, { BarcodeFormat } from './DataProcessingService';
 
 /**
+ * Interface for barcode data
+ */
+export interface BarcodeData {
+  data: string;
+  format: BarcodeFormat;
+  timestamp: number;
+}
+
+/**
  * Interface for a queued item
  */
 export interface QueuedItem {
   id: string;
-  data: string;
+  data: BarcodeData;
   format: BarcodeFormat;
   timestamp: Date;
   retryCount: number;
@@ -91,22 +100,28 @@ export default class TransmissionQueueService {
     // Create a unique ID
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    // Format data for transmission
-    let formattedData = this.dataProcessingService.formatForTransmission(
+    // Create barcode data object
+    const barcodeData: BarcodeData = {
       data,
       format,
-      additionalData
-    );
+      timestamp: Date.now()
+    };
+    
+    // Format data for transmission
+    const formattedData = JSON.stringify({
+      ...barcodeData,
+      ...additionalData
+    });
     
     // Compress if requested
-    if (compress) {
-      formattedData = this.dataProcessingService.compressData(formattedData);
-    }
+    const finalData = compress ? 
+      this.dataProcessingService.compressData(formattedData) : 
+      formattedData;
     
     // Create queue item
     const queueItem: QueuedItem = {
       id,
-      data: formattedData,
+      data: barcodeData,
       format,
       timestamp: new Date(),
       retryCount: 0,
@@ -227,8 +242,19 @@ export default class TransmissionQueueService {
         }
         
         try {
+          // Format data for transmission
+          const formattedData = JSON.stringify({
+            ...item.data,
+            ...item.additionalData
+          });
+          
+          // Compress if needed
+          const finalData = item.compressed ? 
+            this.dataProcessingService.compressData(formattedData) : 
+            formattedData;
+          
           // Attempt to send data
-          const success = await this.usbService.sendData(item.data);
+          const success = await this.usbService.sendData(finalData);
           
           if (success) {
             // Remove from queue on success

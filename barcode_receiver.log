@@ -1,0 +1,15 @@
+2025-03-20 10:27:42,352 - INFO - HTTP server started on port 5000
+2025-03-20 10:27:42,356 - INFO - Connected to USB device on COM7
+2025-03-20 10:28:21,596 - INFO - Disconnected from USB device
+2025-03-20 10:28:21,596 - INFO - Error reading from USB: ClearCommError failed (OSError(9, 'The handle is invalid.', None, 6))
+2025-03-20 10:28:26,576 - INFO - Connected to USB device on COM7
+2025-03-20 10:28:50,883 - INFO - HTTP server started on port 5000
+2025-03-20 10:28:50,892 - INFO - Connected to USB device on COM7
+2025-03-20 10:51:07,898 - INFO - HTTP server started on port 5000
+2025-03-20 10:51:07,907 - INFO - Connected to USB device on COM7
+2025-03-20 10:52:31,943 - INFO - Disconnected from USB device
+2025-03-20 10:52:31,944 - INFO - Error reading from USB: ClearCommError failed (OSError(9, 'The handle is invalid.', None, 6))
+2025-03-20 10:52:33,810 - INFO - Connected to USB device on COM7
+2025-03-20 10:59:20,893 - INFO - Error reading from USB: ClearCommError failed (PermissionError(13, 'Access is denied.', None, 5))
+2025-03-20 10:59:20,978 - INFO - Disconnected from USB device
+2025-03-20 10:59:29,785 - INFO - Failed to connect to USB: could not open port 'COM7': FileNotFoundError(2, 'The system cannot find the file specified.', None, 2)

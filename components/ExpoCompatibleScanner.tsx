@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Ionicons } from '@expo/vector-icons';
 import LoggingService from '../services/LoggingService';
 
 interface BarcodeScannerProps {
-  onBarcodeScanned: (data: string) => void;
+  onBarcodeScanned: (data: string, format?: string) => void;
 }
 
 /**
@@ -18,6 +17,14 @@ export default function ExpoCompatibleScanner({ onBarcodeScanned }: BarcodeScann
   const [scanSuccess, setScanSuccess] = useState(false);
   const glowAnim = React.useRef(new Animated.Value(0)).current;
   const logger = LoggingService.getInstance();
+
+  // Get screen dimensions
+  const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
+  
+  // Make scan area wider and taller - more like a store scanner
+  const scanAreaWidth = screenWidth * 0.85;
+  const scanAreaHeight = screenHeight * 0.7; // Increased height for better scanning area
 
   // Request camera permissions if needed
   useEffect(() => {
@@ -52,23 +59,47 @@ export default function ExpoCompatibleScanner({ onBarcodeScanned }: BarcodeScann
   const handleBarCodeScanned = (barcode: { data: string; type: string }) => {
     const { data, type } = barcode;
     
-    if (!isScanning || data === lastScanned) return;
+    // Only prevent scanning if we're currently in a scan-disabled state
+    // This allows the same barcode to be scanned again after the timeout
+    if (!isScanning) return;
     
-    // Prevent duplicate scans
+    // Prevent rapid scanning by setting isScanning to false temporarily
     setIsScanning(false);
     setLastScanned(data);
     setScanSuccess(true);
     
     logger.info('Barcode detected:', { data, type });
     
-    // Call the callback with the scanned barcode data
-    onBarcodeScanned(data);
+    // Call the callback with the scanned barcode data and format
+    onBarcodeScanned(data, mapBarcodeType(type));
     
     // Resume scanning after a delay
+    // This will allow ANY barcode to be scanned after this timeout
+    // including the same item multiple times (like a store cashier)
     setTimeout(() => {
       setIsScanning(true);
       setScanSuccess(false);
-    }, 3000);
+      // Don't reset lastScanned here - this allows reporting that the same
+      // barcode was scanned again, rather than filtering it out
+    }, 2000); // Reduced to 2 seconds to allow faster repeated scanning
+  };
+  
+  // Map barcode types to formats expected by the laptop receiver
+  const mapBarcodeType = (type: string): string => {
+    const typeMap: { [key: string]: string } = {
+      'org.iso.QRCode': 'QR_CODE',
+      'org.iso.Code128': 'CODE_128',
+      'org.iso.Code39': 'CODE_39',
+      'org.gs1.EAN-13': 'EAN_13',
+      'org.gs1.EAN-8': 'EAN_8',
+      'org.gs1.UPC-E': 'UPC_E',
+      'org.gs1.UPC-A': 'UPC_A',
+      'org.gs1.DataMatrix': 'DATA_MATRIX',
+      'org.ansi.Interleaved2of5': 'ITF',
+      'org.gs1.GS1DataBar': 'PDF_417'
+    };
+    
+    return typeMap[type] || 'UNKNOWN';
   };
   
   // If permission is still being checked
@@ -120,11 +151,24 @@ export default function ExpoCompatibleScanner({ onBarcodeScanned }: BarcodeScann
             }
           ]}
         >
+          {/* Scanning Area Guide */}
+          <View style={[styles.scanArea, { width: scanAreaWidth, height: scanAreaHeight }]}>
+            <View style={styles.scanAreaBorder}>
+              <View style={[styles.corner, styles.cornerTopLeft]} />
+              <View style={[styles.corner, styles.cornerTopRight]} />
+              <View style={[styles.corner, styles.cornerBottomLeft]} />
+              <View style={[styles.corner, styles.cornerBottomRight]} />
+            </View>
+            <Text style={styles.scanAreaText}>SCAN PRODUCT HERE</Text>
+            <Text style={styles.scanAreaSubtext}>Scan same item multiple times to increase quantity</Text>
+          </View>
+
+          {/* Status Container */}
           <View style={styles.statusContainer}>
             <Text style={styles.statusText}>
               {isScanning 
-                ? 'Position barcode anywhere on screen' 
-                : 'Barcode detected! Sending to server...'}
+                ? 'Ready to scan' 
+                : 'Barcode detected! Processing...'}
             </Text>
             {!isScanning && (
               <ActivityIndicator 
@@ -190,10 +234,85 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-end',
-    paddingBottom: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  scanArea: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  scanAreaBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    borderRadius: 12,
+  },
+  corner: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: '#4CAF50',
+    borderWidth: 3,
+  },
+  cornerTopLeft: {
+    top: -3,
+    left: -3,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 12,
+  },
+  cornerTopRight: {
+    top: -3,
+    right: -3,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+    borderTopRightRadius: 12,
+  },
+  cornerBottomLeft: {
+    bottom: -3,
+    left: -3,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 12,
+  },
+  cornerBottomRight: {
+    bottom: -3,
+    right: -3,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    borderBottomRightRadius: 12,
+  },
+  scanAreaText: {
+    color: '#4CAF50',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  scanAreaSubtext: {
+    color: '#ffffff',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 5,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 15,
+    paddingVertical: 5,
+    borderRadius: 15,
   },
   statusContainer: {
+    position: 'absolute',
+    bottom: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

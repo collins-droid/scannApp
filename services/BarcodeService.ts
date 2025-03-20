@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { ScanItem } from '../components/ScanHistory';
 import StorageService from './StorageService';
 import LoggingService from './LoggingService';
+import USBService from './USBService';
+import NetworkService from './NetworkService';
 
 /**
  * Service for handling barcode scanning functionality
@@ -11,7 +13,10 @@ export default class BarcodeService {
   private scanHistory: ScanItem[] = [];
   private logger: LoggingService;
   private storageService: StorageService;
+  private usbService: USBService;
+  private networkService: NetworkService;
   private readonly storageKey = 'scanHistory';
+  private isScanning: boolean = false;
 
   /**
    * Get the singleton instance of BarcodeService
@@ -29,47 +34,11 @@ export default class BarcodeService {
   private constructor() {
     this.logger = LoggingService.getInstance();
     this.storageService = StorageService.getInstance();
+    this.usbService = USBService.getInstance();
+    this.networkService = NetworkService.getInstance();
     
     // Load scan history from storage
     this.loadScanHistory();
-    
-    // Add sample data if history is empty
-    if (this.scanHistory.length === 0) {
-      this.addSampleData();
-    }
-  }
-
-  /**
-   * Add sample data for demonstration
-   */
-  private addSampleData(): void {
-    // Only add sample data if the history is empty
-    if (this.scanHistory.length === 0) {
-      const sampleBarcodes = [
-        '9780201896831', // EAN-13
-        '12345678', // EAN-8
-        'CODE39TEST', // CODE39
-        'PRODUCT1234', // CODE128
-      ];
-      
-      // Add sample barcodes with different timestamps
-      sampleBarcodes.forEach((barcode, index) => {
-        const timestamp = new Date();
-        timestamp.setMinutes(timestamp.getMinutes() - index * 10); // Space out the timestamps
-        
-        this.scanHistory.push({
-          id: `sample-${index}-${Date.now()}`,
-          data: barcode,
-          timestamp,
-          sent: index < 2, // Mark some as sent for demonstration
-        });
-      });
-      
-      this.logger.info('Sample scan history data added');
-      
-      // Save to storage
-      this.saveScanHistory();
-    }
   }
 
   /**
@@ -106,17 +75,57 @@ export default class BarcodeService {
   }
 
   /**
+   * Start barcode scanning
+   * @returns Promise with start result
+   */
+  public async startScanning(): Promise<boolean> {
+    try {
+      this.isScanning = true;
+      return true;
+    } catch (error) {
+      this.logger.error('Error starting barcode scanning:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop barcode scanning
+   * @returns Promise with stop result
+   */
+  public async stopScanning(): Promise<boolean> {
+    try {
+      this.isScanning = false;
+      return true;
+    } catch (error) {
+      this.logger.error('Error stopping barcode scanning:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Handle barcode scanning
    * @param data The barcode data scanned
    * @returns The processed barcode data
    */
-  public handleBarcodeScan(data: string): string {
+  public async handleBarcodeScan(data: string): Promise<string> {
+    if (!this.isScanning) {
+      return data;
+    }
+
     this.logger.info('Barcode scanned:', data);
     
-    // Add to scan history
-    this.addToScanHistory(data);
-    
-    return data;
+    try {
+      // Add to scan history
+      this.addToScanHistory(data);
+      
+      // Send data to configured destinations
+      await this.sendBarcodeData(data);
+      
+      return data;
+    } catch (error) {
+      this.logger.error('Error handling barcode scan:', error);
+      throw error;
+    }
   }
 
   /**
@@ -135,6 +144,30 @@ export default class BarcodeService {
     
     // Save to storage
     this.saveScanHistory();
+  }
+
+  /**
+   * Send barcode data to configured destinations
+   * @param data Barcode data to send
+   */
+  private async sendBarcodeData(data: string): Promise<void> {
+    try {
+      // Send via USB
+      await this.usbService.sendData(data);
+      
+      // Send via network
+      await this.networkService.sendData(data);
+      
+      // Update scan history to mark as sent
+      const lastItem = this.scanHistory[this.scanHistory.length - 1];
+      if (lastItem) {
+        lastItem.sent = true;
+        this.saveScanHistory();
+      }
+    } catch (error) {
+      this.logger.error('Error sending barcode data:', error);
+      throw error;
+    }
   }
 
   /**
@@ -168,17 +201,24 @@ export const useBarcodeScanner = () => {
     // Get initial scan history
     setScanHistory(barcodeService.getScanHistory());
     
-    // Update scan history every 2 seconds (for demo purposes)
-    const intervalId = setInterval(() => {
+    // Update scan history when it changes
+    const updateHistory = () => {
       setScanHistory(barcodeService.getScanHistory());
-    }, 2000);
+    };
     
-    return () => clearInterval(intervalId);
+    // Listen for storage changes
+    window.addEventListener('storage', updateHistory);
+    
+    return () => {
+      window.removeEventListener('storage', updateHistory);
+    };
   }, []);
 
   return {
     scanHistory,
     handleBarcodeScan: barcodeService.handleBarcodeScan.bind(barcodeService),
     clearScanHistory: barcodeService.clearScanHistory.bind(barcodeService),
+    startScanning: barcodeService.startScanning.bind(barcodeService),
+    stopScanning: barcodeService.stopScanning.bind(barcodeService),
   };
 }; 

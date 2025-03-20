@@ -2,6 +2,7 @@ import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 import LoggingService from './LoggingService';
 import StorageService from './StorageService';
 import USBCommunicationProtocol, { MessageType, Message } from './USBCommunicationProtocol';
+import NetworkService from './NetworkService';
 
 
 const { USBModule } = NativeModules;
@@ -10,6 +11,7 @@ const { USBModule } = NativeModules;
 const MAX_CONNECTION_RETRIES = 5;
 const RETRY_DELAY = 3000; // 3 seconds
 const CONNECTION_TIMEOUT = 30000; // 30 seconds
+const COM_PORT = 'COM7'; // Specific COM port for laptop connection
 
 // Event types
 export enum USBEvent {
@@ -61,6 +63,12 @@ export default class USBService {
   private deviceInfo: any = null;
   private autoReconnect: boolean = true;
   private isConnected: boolean = false; // Maintain backward compatibility
+  private networkService: NetworkService;
+  private isConnecting: boolean = false;
+  private reconnectAttempts: number = 0;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private readonly MAX_RECONNECT_ATTEMPTS = 3;
+  private readonly RECONNECT_DELAY = 5000; // 5 seconds
 
   /**
    * Initialize the USB service
@@ -69,6 +77,7 @@ export default class USBService {
     this.logger = LoggingService.getInstance();
     this.storageService = StorageService.getInstance();
     this.protocol = USBCommunicationProtocol.getInstance();
+    this.networkService = NetworkService.getInstance();
     
     // Initialize event emitter if on a real device
     if (Platform.OS !== 'web' && USBModule) {
@@ -109,7 +118,12 @@ export default class USBService {
       this.deviceInfo = device;
       this.setConnectionState(ConnectionState.CONNECTED);
       this.connectionAttempts = 0;
-      this.performHandshake();
+      
+      // Important: Don't disconnect after handshake
+      this.performHandshake().catch(err => {
+        this.logger.error('Error during handshake', err);
+      });
+      
       this.emitEvent(USBEvent.CONNECTED, device);
     });
 
@@ -182,6 +196,18 @@ export default class USBService {
     this.protocol.registerHandler(MessageType.HANDSHAKE_RESPONSE, (message) => {
       this.logger.info('Handshake response received', message);
       this.setConnectionState(ConnectionState.READY);
+      
+      // Store device info from handshake response
+      if (message.payload?.deviceInfo) {
+        this.deviceInfo = {
+          ...this.deviceInfo,
+          ...message.payload.deviceInfo
+        };
+      }
+      
+      // Ensure connection is maintained
+      this.isConnected = true;
+      this.emitEvent('connectionChange' as any, true);
     });
     
     // Handle status responses
@@ -244,13 +270,17 @@ export default class USBService {
     this.connectionError = error;
     
     // Update isConnected for backward compatibility
-    this.isConnected = (state === ConnectionState.CONNECTED);
+    this.isConnected = (state === ConnectionState.CONNECTED || state === ConnectionState.HANDSHAKING || state === ConnectionState.READY);
     
     // Clear timers if now connected or in error state
     if (state === ConnectionState.CONNECTED || 
+        state === ConnectionState.READY ||
         state === ConnectionState.ERROR) {
       this.clearConnectionTimer();
     }
+    
+    // Log connection state change
+    this.logger.info(`USB connection state changed to: ${state}${error ? ` (Error: ${error})` : ''}`);
     
     // Emit state change event
     this.emitEvent(USBEvent.CONNECTION_STATE_CHANGE, { 
@@ -323,51 +353,26 @@ export default class USBService {
     this.setConnectionState(ConnectionState.HANDSHAKING);
     
     try {
-      // App info from settings
-      const appInfo = {
-        appName: 'BarcodeScanner',
-        version: '1.0.0', // TODO: Get from app config
+      // Create a simpler handshake for the desktop application
+      const handshakeMessage = {
+        type: "handshake",
+        device: "Android Barcode Scanner",
+        version: "1.0.0",
+        timestamp: Date.now() / 1000
       };
       
-      // Create send function for protocol
-      const sendFunction = async (data: string): Promise<boolean> => {
-        try {
-          if (USBModule?.sendData) {
-            await USBModule.sendData(data);
-            return true;
-          }
-          
-          // Fallback for mock implementation
-          console.log('Sending data over USB (mock):', data);
-          
-          // Simulate response for mock mode
-          if (process.env.NODE_ENV === 'development') {
-            setTimeout(() => {
-              const responseMessage = this.protocol.createMessage(MessageType.HANDSHAKE_RESPONSE, {
-                sessionId: `session-${Date.now()}`,
-                deviceInfo: {
-                  name: 'Mock USB Device',
-                  id: 'mock-device-001',
-                  firmwareVersion: '1.0.0',
-                  capabilities: ['BATCH_PROCESSING', 'COMPRESSION']
-                }
-              });
-              this.protocol.processIncomingMessage(JSON.stringify(responseMessage));
-            }, 500);
-          }
-          
-          return true;
-        } catch (error) {
-          this.logger.error('Error sending handshake data', error);
-          return false;
-        }
-      };
+      this.logger.info('Sending handshake to desktop application', handshakeMessage);
       
-      // Perform handshake
-      await this.protocol.performHandshake(sendFunction, appInfo);
+      if (USBModule?.sendData) {
+        await USBModule.sendData(JSON.stringify(handshakeMessage));
+      } else {
+        throw new Error('USB Module not available');
+      }
       
-      // If we get here, handshake was successful
+      // Change connection state to ready
       this.setConnectionState(ConnectionState.READY);
+      
+      return;
     } catch (error) {
       this.logger.error('Handshake failed', error);
       this.setConnectionState(ConnectionState.ERROR, ConnectionError.HANDSHAKE_FAILED);
@@ -377,6 +382,8 @@ export default class USBService {
         this.connectionAttempts++;
         this.scheduleReconnect();
       }
+      
+      throw error;
     }
   }
 
@@ -413,25 +420,15 @@ export default class USBService {
     }, CONNECTION_TIMEOUT);
     
     try {
-      this.logger.info('Attempting to connect to USB device');
+      this.logger.info(`Attempting to connect to USB device on ${COM_PORT}`);
       
       if (USBModule?.connectDevice) {
-        await USBModule.connectDevice();
+        // Pass COM port to native module
+        await USBModule.connectDevice(COM_PORT);
         // Connection will be handled by event listeners
         return true;
       } else {
-        // Mock implementation for development
-        setTimeout(() => {
-          this.deviceInfo = { 
-            name: 'Mock USB Device',
-            id: 'mock-device-001',
-            type: 'virtual' 
-          };
-          this.setConnectionState(ConnectionState.CONNECTED);
-          this.performHandshake();
-          this.emitEvent(USBEvent.CONNECTED, this.deviceInfo);
-        }, 1000);
-        return true;
+        throw new Error('USB Module not available');
       }
       
     } catch (error: unknown) {
@@ -507,7 +504,8 @@ export default class USBService {
    * @returns Connection status
    */
   public isDeviceConnected(): boolean {
-    return this.connectionState === ConnectionState.READY;
+    return this.connectionState === ConnectionState.READY || 
+           this.connectionState === ConnectionState.CONNECTED;
   }
 
   /**
@@ -518,14 +516,7 @@ export default class USBService {
    */
   public async sendData(data: string, waitForAck: boolean = true): Promise<any> {
     if (this.connectionState !== ConnectionState.READY) {
-      if (USBModule?.sendData) {
-        throw new Error(`Cannot send data, connection not ready (state: ${this.connectionState})`);
-      } else {
-        // For backward compatibility in mock mode
-        console.log('Sending data over USB (mock):', data);
-        this.emitEvent('dataSent' as any, data);
-        return true;
-      }
+      throw new Error(`Cannot send data, connection not ready (state: ${this.connectionState})`);
     }
     
     try {
@@ -539,21 +530,10 @@ export default class USBService {
         const sendFunction = async (msgData: string): Promise<boolean> => {
           if (USBModule?.sendData) {
             await USBModule.sendData(msgData);
+            return true;
           } else {
-            // Mock implementation
-            console.log('Sending data over USB (mock):', msgData);
-            this.emitEvent('dataSent' as any, data);
-            
-            // Simulate ACK response
-            setTimeout(() => {
-              const ackMessage = this.protocol.createMessage(MessageType.ACK, {
-                originalMessageId: message.id,
-                status: 'success'
-              });
-              this.protocol.processIncomingMessage(JSON.stringify(ackMessage));
-            }, 300);
+            throw new Error('USB Module not available');
           }
-          return true;
         };
         
         // Return result from acknowledgment
@@ -562,12 +542,10 @@ export default class USBService {
         // Simple send without waiting for ack
         if (USBModule?.sendData) {
           await USBModule.sendData(data);
+          return true;
         } else {
-          // Mock implementation
-          console.log('Sending data over USB (mock):', data);
-          this.emitEvent('dataSent' as any, data);
+          throw new Error('USB Module not available');
         }
-        return true;
       }
     } catch (error) {
       this.logger.error('Error sending data', error);
@@ -791,5 +769,51 @@ export default class USBService {
    */
   public getSessionId(): string | null {
     return this.protocol.getSessionId();
+  }
+
+  /**
+   * Send barcode data to USB device
+   * @param barcodeData The barcode data to send
+   * @param barcodeFormat The format of the barcode (e.g., CODE_128)
+   * @returns Promise resolving to acknowledgment
+   */
+  public async sendBarcodeData(barcodeData: string, barcodeFormat: string = 'Unknown'): Promise<boolean> {
+    try {
+      // First try USB if connected
+      if (this.isConnected) {
+        const success = await this.sendDataOverUSB(barcodeData, barcodeFormat);
+        if (success) {
+          return true;
+        }
+      }
+
+      // If USB fails or is not connected, try network
+      this.logger.info('USB transmission failed or not connected, trying network...');
+      return await this.networkService.sendBarcodeData(barcodeData, barcodeFormat);
+    } catch (error) {
+      this.logger.error('Failed to send barcode data', error);
+      return false;
+    }
+  }
+
+  private async sendDataOverUSB(barcodeData: string, format: string): Promise<boolean> {
+    try {
+      const payload = {
+        type: "barcode",
+        data: barcodeData,
+        format: format,
+        timestamp: Date.now() / 1000
+      };
+
+      const success = await this.sendData(JSON.stringify(payload));
+      if (success) {
+        this.logger.info('Barcode data sent successfully over USB');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      this.logger.error('Failed to send barcode data over USB', error);
+      return false;
+    }
   }
 } 

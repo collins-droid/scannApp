@@ -141,7 +141,7 @@ export default class StorageService {
    */
   public async multiSet(keyValuePairs: readonly [string, string][]): Promise<void> {
     try {
-      await AsyncStorage.multiSet(keyValuePairs);
+      await AsyncStorage.multiSet(keyValuePairs as [string, string][]);
     } catch (error) {
       this.logger.error('Error storing multiple items', error);
       throw error;
@@ -157,6 +157,21 @@ export default class StorageService {
       await AsyncStorage.multiRemove(keys);
     } catch (error) {
       this.logger.error('Error removing multiple items', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Store multiple key-value pairs
+   * @param items Array of [key, value] pairs to store
+   */
+  public async storeMultiple(items: readonly [string, string][]): Promise<void> {
+    try {
+      // Convert readonly array to mutable array
+      const mutableItems = items.map(([key, value]) => [key, value] as [string, string]);
+      await AsyncStorage.multiSet(mutableItems);
+    } catch (error) {
+      console.error('Error storing multiple items:', error);
       throw error;
     }
   }
