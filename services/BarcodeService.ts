@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ScanItem } from '../components/ScanHistory';
-import { Platform } from 'react-native';
+import StorageService from './StorageService';
+import LoggingService from './LoggingService';
 
 /**
  * Service for handling barcode scanning functionality
@@ -8,6 +9,9 @@ import { Platform } from 'react-native';
 export default class BarcodeService {
   private static instance: BarcodeService;
   private scanHistory: ScanItem[] = [];
+  private logger: LoggingService;
+  private storageService: StorageService;
+  private readonly storageKey = 'scanHistory';
 
   /**
    * Get the singleton instance of BarcodeService
@@ -15,10 +19,24 @@ export default class BarcodeService {
   public static getInstance(): BarcodeService {
     if (!BarcodeService.instance) {
       BarcodeService.instance = new BarcodeService();
-      // Add some sample data
-      BarcodeService.instance.addSampleData();
     }
     return BarcodeService.instance;
+  }
+
+  /**
+   * Initialize the barcode service
+   */
+  private constructor() {
+    this.logger = LoggingService.getInstance();
+    this.storageService = StorageService.getInstance();
+    
+    // Load scan history from storage
+    this.loadScanHistory();
+    
+    // Add sample data if history is empty
+    if (this.scanHistory.length === 0) {
+      this.addSampleData();
+    }
   }
 
   /**
@@ -47,19 +65,44 @@ export default class BarcodeService {
         });
       });
       
-      console.log('Sample scan history data added');
+      this.logger.info('Sample scan history data added');
+      
+      // Save to storage
+      this.saveScanHistory();
     }
   }
 
   /**
-   * Request camera permissions - mock implementation
-   * @returns Promise with permission status
+   * Load scan history from storage
    */
-  public async requestCameraPermission(): Promise<boolean> {
-    // We're using a mock scanner that doesn't need camera permission
-    // In a real app, we would request camera permissions here
-    console.log('Mock camera permission requested - auto-granting for development');
-    return true;
+  private async loadScanHistory(): Promise<void> {
+    try {
+      const storedHistory = await this.storageService.getObject<ScanItem[]>(this.storageKey);
+      
+      if (storedHistory && storedHistory.length > 0) {
+        // Convert stored date strings back to Date objects
+        this.scanHistory = storedHistory.map(item => ({
+          ...item,
+          timestamp: new Date(item.timestamp),
+        }));
+        
+        this.logger.info(`Loaded ${this.scanHistory.length} items from scan history storage`);
+      }
+    } catch (error) {
+      this.logger.error('Error loading scan history from storage', error);
+    }
+  }
+
+  /**
+   * Save scan history to storage
+   */
+  private async saveScanHistory(): Promise<void> {
+    try {
+      await this.storageService.storeObject(this.storageKey, this.scanHistory);
+      this.logger.info(`Saved ${this.scanHistory.length} items to scan history storage`);
+    } catch (error) {
+      this.logger.error('Error saving scan history to storage', error);
+    }
   }
 
   /**
@@ -68,7 +111,7 @@ export default class BarcodeService {
    * @returns The processed barcode data
    */
   public handleBarcodeScan(data: string): string {
-    console.log('Barcode scanned:', data);
+    this.logger.info('Barcode scanned:', data);
     
     // Add to scan history
     this.addToScanHistory(data);
@@ -90,7 +133,8 @@ export default class BarcodeService {
     
     this.scanHistory.push(scanItem);
     
-    // TODO: Implement AsyncStorage persistence in future implementation
+    // Save to storage
+    this.saveScanHistory();
   }
 
   /**
@@ -107,7 +151,9 @@ export default class BarcodeService {
   public clearScanHistory(): void {
     this.scanHistory = [];
     
-    // TODO: Clear AsyncStorage in future implementation
+    // Clear from storage
+    this.storageService.removeItem(this.storageKey);
+    this.logger.info('Scan history cleared');
   }
 }
 
@@ -115,20 +161,24 @@ export default class BarcodeService {
  * React hook for using the barcode service
  */
 export const useBarcodeScanner = () => {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [scanHistory, setScanHistory] = useState<ScanItem[]>([]);
   const barcodeService = BarcodeService.getInstance();
 
   useEffect(() => {
-    (async () => {
-      const permissionGranted = await barcodeService.requestCameraPermission();
-      setHasPermission(permissionGranted);
-    })();
+    // Get initial scan history
+    setScanHistory(barcodeService.getScanHistory());
+    
+    // Update scan history every 2 seconds (for demo purposes)
+    const intervalId = setInterval(() => {
+      setScanHistory(barcodeService.getScanHistory());
+    }, 2000);
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   return {
-    hasPermission,
+    scanHistory,
     handleBarcodeScan: barcodeService.handleBarcodeScan.bind(barcodeService),
-    getScanHistory: barcodeService.getScanHistory.bind(barcodeService),
     clearScanHistory: barcodeService.clearScanHistory.bind(barcodeService),
   };
 }; 

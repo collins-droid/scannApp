@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, SafeAreaView, Platform, StatusBar } from 'react-native';
-import MockBarcodeScanner from '../components/MockBarcodeScanner';
+import { View, StyleSheet, SafeAreaView, Platform, StatusBar, Alert } from 'react-native';
+import ExpoCompatibleScanner from '../components/ExpoCompatibleScanner';
 import USBConnectionStatus from '../components/USBConnectionStatus';
 import TransmissionStatus from '../components/TransmissionStatus';
 import LoggingService from '../services/LoggingService';
@@ -50,6 +50,13 @@ const ScannerScreen: React.FC = () => {
       setTimeout(() => {
         setCurrentBarcode(undefined);
       }, 3000);
+    } else {
+      // Show an alert if auto-send is disabled
+      Alert.alert(
+        'Barcode Scanned',
+        `Scanned: ${data}`,
+        [{ text: 'OK' }]
+      );
     }
   }, [autoSend, barcodeService]);
 
@@ -65,7 +72,7 @@ const ScannerScreen: React.FC = () => {
       
       {/* Barcode Scanner */}
       <View style={styles.scannerContainer}>
-        <MockBarcodeScanner onBarcodeScanned={handleBarcodeScanned} />
+        <ExpoCompatibleScanner onBarcodeScanned={handleBarcodeScanned} />
       </View>
       
       {/* Transmission Status Overlay */}

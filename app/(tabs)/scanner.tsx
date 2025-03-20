@@ -6,7 +6,7 @@ import ScannerScreen from '../../screens/ScannerScreen';
 /**
  * Scanner tab that displays the barcode scanner
  */
-export default function Scanner() {
+function Scanner() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScannerScreen />
@@ -19,4 +19,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-}); 
+});
+
+export default Scanner; 

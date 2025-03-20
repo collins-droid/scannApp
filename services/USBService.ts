@@ -7,9 +7,9 @@ import USBCommunicationProtocol, { MessageType, Message } from './USBCommunicati
 const { USBModule } = NativeModules;
 
 // Constants
-const MAX_CONNECTION_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 seconds
-const CONNECTION_TIMEOUT = 15000; // 15 seconds
+const MAX_CONNECTION_RETRIES = 5;
+const RETRY_DELAY = 3000; // 3 seconds
+const CONNECTION_TIMEOUT = 30000; // 30 seconds
 
 // Event types
 export enum USBEvent {
